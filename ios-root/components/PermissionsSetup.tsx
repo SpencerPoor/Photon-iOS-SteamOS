@@ -1,12 +1,28 @@
 import { PropsWithChildren } from "react";
-import { Text, View, StyleSheet, Modal, Pressable } from "react-native";
+import { Text, View, StyleSheet, Modal, Pressable, Linking, Alert } from "react-native";
+import * as MediaLibrary from 'expo-media-library';
 
 type Props = PropsWithChildren<{
   showSetup: boolean;
-  requestPermissions: () => void;
+  setShowSetup: React.Dispatch<React.SetStateAction<boolean>>;
 }>;
 
-export default function PermissionsSetup({ requestPermissions, showSetup }: Props) {
+export default function PermissionsSetup({ showSetup, setShowSetup }: Props) {
+
+  // Requests media permissions from the device
+  const requestPermissions = async () => {
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status === 'granted') {
+      setShowSetup(false);
+    } else {
+      Alert.alert(
+        'Please allow access to your Photos library',
+        'Settings > Apps > Photon > Photos',
+        [{ text: 'Open Settings', onPress: () => Linking.openSettings() }],
+      );
+    }
+  }
+
   return (
     <Modal animationType="slide" transparent={true} visible={showSetup}>
       <View style={styles.overlay}>

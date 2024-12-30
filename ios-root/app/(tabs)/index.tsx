@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, Alert, Linking, Modal } from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 import { useState, useEffect } from "react";
 import * as MediaLibrary from 'expo-media-library';
 
@@ -23,23 +23,10 @@ export default function Index() {
     }
   }
 
-  const requestPermissions = async () => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status === 'granted') {
-      setShowSetup(false);
-    } else {
-      Alert.alert(
-        'Please allow access to your Photos library',
-        'Settings > Apps > Photon > Photos',
-        [{ text: 'Open Settings', onPress: () => Linking.openSettings() }],
-      );
-    }
-  }
-
   return (
       <View style={styles.container}>
         <Text style={styles.text}>Edit app/index.tsx to edit this screen.</Text>
-        <PermissionsSetup showSetup={showSetup} requestPermissions={requestPermissions} />
+        <PermissionsSetup showSetup={showSetup} setShowSetup={setShowSetup} />
       </View>
   );
 }
