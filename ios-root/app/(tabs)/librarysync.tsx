@@ -1,8 +1,8 @@
-import { Text, View, StyleSheet, FlatList, Image, Pressable, Dimensions, ImageBackground } from "react-native";
+import { View, StyleSheet, FlatList, Image, Pressable, Dimensions, ImageBackground, Button } from "react-native";
 import { useState, useEffect } from 'react';
 import * as MediaLibrary from "expo-media-library";
 import { FontAwesome } from "@expo/vector-icons";
-import { opacity } from "react-native-reanimated/lib/typescript/Colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Device screen width to reference for photo rendering
 const screenWidth = Dimensions.get('window').width;
@@ -13,21 +13,24 @@ type Photo = {
   isSelected: boolean;
 }
 
+// AsyncStorage key
+const SELECTED_PHOTOS_KEY = "selectedPhotos"
+
 export default function LibrarySync() {
   // Array of photos permitted to be accessed
   const [photos, setPhotos] = useState<Photo[] | null>(null);
 
   // On page load, loads photos for preview
   useEffect(() => {
-    console.log(`photos useState on page load: type is ${typeof photos}
-      value is ${photos}`);
     if (photos === null) {
-      loadPhotos();
+      loadPhotosWithSelectedState();
     }
   }, []);
 
   // Loads photos from device media library
-  const loadPhotos = async () => {
+  const loadPhotosWithSelectedState = async () => {
+      const storedSelectedPhotos = await getStoredSelectedPhotos();
+
       const { assets } = await MediaLibrary.getAssetsAsync({
         mediaType: MediaLibrary.MediaType.photo,
         first: 50, // Fetch the first 50 photos
@@ -37,12 +40,30 @@ export default function LibrarySync() {
       const formattedPhotos = assets.map((photo) => ({
         id: photo.id,
         uri: photo.uri,
-        isSelected: false, // Initially, no photo is selected
+        isSelected: storedSelectedPhotos.includes(photo.id) || false,
       }));
 
       setPhotos(formattedPhotos);
-      console.log(`photos useState after page load: type is ${typeof photos}
-        value is ${photos}`);
+  };
+  // Get stored selected photos from AsyncStorage
+  const getStoredSelectedPhotos = async (): Promise<string[] | null> => {
+    try {
+      const jsonValue = await AsyncStorage.getItem(SELECTED_PHOTOS_KEY);
+      return jsonValue ? JSON.parse(jsonValue) : null;
+    } catch (error) {
+      console.error("Error retrieving stored photos:", error);
+      return null;
+    }
+  };
+  // Save selected photos to AsyncStorage
+  const saveSelectedPhotos = async () => {
+    try {
+      const selectedPhotoIds = photos?.filter((photo) => photo.isSelected).map((photo) => photo.id) || [];
+      await AsyncStorage.setItem(SELECTED_PHOTOS_KEY, JSON.stringify(selectedPhotoIds));
+      alert("Selected photos saved successfully!");
+    } catch (error) {
+      console.error("Error saving selected photos:", error);
+    }
   };
 
   // Toggles if the photo is selected for syncing
@@ -56,24 +77,29 @@ export default function LibrarySync() {
 
   return (
     // Renders photos into an interactable FlatList
-    <FlatList
-      style={{ backgroundColor: "#25292e" }}
-      data={photos}
-      keyExtractor={(item) => item.id}
-      numColumns={3}
-      renderItem={({ item }) => (
-        <View style={ styles.photoContainer }>
-          <ImageBackground source={{ uri: item.uri }} style={ styles.photo }>
-            {item.isSelected && <View style={styles.selectedPhotoDim} />}
-            <Pressable style={styles.iconContainer} onPress={() => togglePhotoSelection(item.id)}>
-              <FontAwesome name={item.isSelected ? 'check-circle' : 'circle-thin'}
-              size={35} color={item.isSelected ? 'rgb(0, 255, 21)' : 'white'} />
-            </Pressable>
-          </ImageBackground>
-        </View>
-      )}
-      contentContainerStyle={styles.gallery}
-    />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        style={{ backgroundColor: "#25292e" }}
+        data={photos}
+        keyExtractor={(item) => item.id}
+        numColumns={3}
+        renderItem={({ item }) => (
+          <View style={ styles.photoContainer }>
+            <ImageBackground source={{ uri: item.uri }} style={ styles.photo }>
+              {item.isSelected && <View style={styles.selectedPhotoDim} />}
+              <Pressable style={styles.iconContainer} onPress={() => togglePhotoSelection(item.id)}>
+                <FontAwesome name={item.isSelected ? 'check-circle' : 'circle-thin'}
+                size={35} color={item.isSelected ? 'rgb(0, 255, 21)' : 'white'} />
+              </Pressable>
+            </ImageBackground>
+          </View>
+        )}
+        contentContainerStyle={styles.gallery}
+      />
+      <View style={styles.saveButtonContainer}>
+          <Button title="Save Selected Photos" onPress={saveSelectedPhotos} />
+      </View>
+    </View>
   );
 }
 
@@ -102,5 +128,9 @@ const styles = StyleSheet.create({
     top: 5,
     right: 5,
     zIndex: 1,
-  }
+  },
+  saveButtonContainer: {
+    padding: 10,
+    backgroundColor: "#25292e",
+  },
 });
