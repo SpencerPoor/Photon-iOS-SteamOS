@@ -22,9 +22,7 @@ export default function LibrarySync() {
 
   // On page load, loads photos for preview
   useEffect(() => {
-    if (photos === null) {
       loadPhotosWithSelectedState();
-    }
   }, []);
 
   // Loads photos from device media library
@@ -40,7 +38,7 @@ export default function LibrarySync() {
       const formattedPhotos = assets.map((photo) => ({
         id: photo.id,
         uri: photo.uri,
-        isSelected: storedSelectedPhotos.includes(photo.id) || false,
+        isSelected: storedSelectedPhotos?.includes(photo.id) || false,
       }));
 
       setPhotos(formattedPhotos);
