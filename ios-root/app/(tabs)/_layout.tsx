@@ -10,12 +10,12 @@ export default function RootLayout() {
         screenOptions={{
           tabBarActiveTintColor: 'white',
           headerStyle: {
-            backgroundColor: '#25292e',
+            backgroundColor: '#000000',
           },
           headerShadowVisible: false,
           headerTintColor: '#fff',
           tabBarStyle: {
-            backgroundColor: '#25292e',
+            backgroundColor: '#000000',
           },
         }}
       >
@@ -99,6 +99,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   tabsContainer: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: '#000000',
   },
 });
