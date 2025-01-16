@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MediaPreview from "@/components/MediaPreview";
 import StorageKeys from "@/utility/constants/AsyncStorageKeys";
-import { FetchMedia, getAllSyncStatus } from "@/utility/FetchMediaUtils";
+import { PreviewMediaFetch, getAllSyncStatus, storeSelectedMediaIds } from "@/utility/MediaFetchUtils";
 
 type MediaItem = {
   id: string;
@@ -21,12 +21,11 @@ export default function LibrarySync() {
     handleFetchMediaUtils();
   }, []);
 
-
   const handleFetchMediaUtils = async () => {
     const fetchedSyncStatus = await getAllSyncStatus(StorageKeys.ALLSYNC_STATUS_KEY);
     setSyncAll(fetchedSyncStatus);
-    const fetchedMedia = await FetchMedia();
-    setMedia(fetchedMedia);
+    const fetchedPreviewMedia = await PreviewMediaFetch();
+    setMedia(fetchedPreviewMedia);
 
   }
 
@@ -41,7 +40,7 @@ export default function LibrarySync() {
   const saveSelectedMedia = async () => {
     try {
       const selectedMediaIds = media?.filter((mediaItem) => mediaItem.isSelected).map((mediaItem) => mediaItem.id) || [];
-      await AsyncStorage.setItem(StorageKeys.SELECTED_MEDIA_KEY, JSON.stringify(selectedMediaIds));
+      storeSelectedMediaIds(selectedMediaIds);
       await AsyncStorage.setItem(StorageKeys.ALLSYNC_STATUS_KEY, String(syncAll));
       alert("Selected media saved successfully!");
     } catch (error) {
