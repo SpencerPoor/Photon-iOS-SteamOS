@@ -10,7 +10,7 @@ type MediaItem = {
 }
 
 type Props = PropsWithChildren<{
-  syncAll: boolean;
+  syncAll: boolean | null;
   media: MediaItem[];
   setMedia: React.Dispatch<React.SetStateAction<MediaItem[]>>;
 }>;

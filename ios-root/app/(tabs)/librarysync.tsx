@@ -1,8 +1,9 @@
 import { View, StyleSheet, Pressable, Switch, Text } from "react-native";
 import { useState, useEffect } from 'react';
-import * as MediaLibrary from "expo-media-library";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MediaPreview from "@/components/MediaPreview";
+import StorageKeys from "@/utility/constants/AsyncStorageKeys";
+import { FetchMedia, getAllSyncStatus } from "@/utility/FetchMediaUtils";
 
 type MediaItem = {
   id: string;
@@ -11,84 +12,37 @@ type MediaItem = {
   isSelected: boolean;
 }
 
-// AsyncStorage keys
-const SELECTED_MEDIA_KEY = "selectedMedia";
-const ALLSYNC_STATUS = "syncAllStatus"
-
 export default function LibrarySync() {
-  // Array of media permitted to be accessed
   const [media, setMedia] = useState<MediaItem[]>([]);
-  // Should all media be selected for syncing?
-  const [syncAll, setSyncAll] = useState(false);
+  const [syncAll, setSyncAll] = useState<boolean | null>(false);
 
   // On page load, loads media for preview
   useEffect(() => {
-    fetchMedia();
+    handleFetchMediaUtils();
   }, []);
 
-  // Loads media from device media library
-  const fetchMedia = async () => {
-    const storedSelectedMedia = await getStoredSelectedMedia();
-    const syncAllStatus = await getSyncAllStatus();
-    syncAllStatus === "true" ? setSyncAll(true) : null;
 
-    const { assets: fetchedAssets } = await MediaLibrary.getAssetsAsync({
-      mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
-    });
+  const handleFetchMediaUtils = async () => {
+    const fetchedSyncStatus = await getAllSyncStatus(StorageKeys.ALLSYNC_STATUS_KEY);
+    setSyncAll(fetchedSyncStatus);
+    const fetchedMedia = await FetchMedia();
+    setMedia(fetchedMedia);
 
-    // Maps necessary metadata from each media item to an array for rendering on screen
-    if (syncAll) {
-      const formattedMedia = fetchedAssets.map((mediaItem) => ({
-        id: mediaItem.id,
-        uri: mediaItem.uri,
-        type: mediaItem.mediaType,
-        isSelected: true,
-      }));
-      setMedia(formattedMedia);
-    } else {
-      const formattedMedia = fetchedAssets.map((mediaItem) => ({
-        id: mediaItem.id,
-        uri: mediaItem.uri,
-        type: mediaItem.mediaType,
-        isSelected: storedSelectedMedia?.includes(mediaItem.id) || false,
-      }));
-      setMedia(formattedMedia);
-    }
-  };
-  // fetchMedia helpers: Get stored selected media and syncAllStatus from AsyncStorage
-  const getStoredSelectedMedia = async (): Promise<string[] | null> => {
-    try {
-      const jsonValue = await AsyncStorage.getItem(SELECTED_MEDIA_KEY);
-      return jsonValue ? JSON.parse(jsonValue) : null;
-    } catch (error) {
-      console.error("Error retrieving stored media:", error);
-      return null;
-    }
-  };
-  const getSyncAllStatus = async (): Promise<string | null> => {
-    try {
-      const syncAllStatus = await AsyncStorage.getItem(ALLSYNC_STATUS);
-      return syncAllStatus;
-    } catch (error) {
-      console.error("Error retrieving syncAllStatus", error);
-      return null;
-    }
   }
 
   // When the user toggles if they want all media synced
   const handleToggleSyncAll = () => {
-    setSyncAll((prev) => !prev);
+    setSyncAll(!syncAll);
     setMedia((prevMedia) =>
       prevMedia.map((mediaItem) => ({ ...mediaItem, isSelected: !syncAll }))
     );
   };
-
-  // Save final photo selection to AsyncStorage
+  // Save final media and allSync selection to AsyncStorage
   const saveSelectedMedia = async () => {
     try {
       const selectedMediaIds = media?.filter((mediaItem) => mediaItem.isSelected).map((mediaItem) => mediaItem.id) || [];
-      await AsyncStorage.setItem(SELECTED_MEDIA_KEY, JSON.stringify(selectedMediaIds));
-      await AsyncStorage.setItem(ALLSYNC_STATUS, String(syncAll));
+      await AsyncStorage.setItem(StorageKeys.SELECTED_MEDIA_KEY, JSON.stringify(selectedMediaIds));
+      await AsyncStorage.setItem(StorageKeys.ALLSYNC_STATUS_KEY, String(syncAll));
       alert("Selected media saved successfully!");
     } catch (error) {
       console.error("Error saving selected media:", error);
@@ -96,7 +50,10 @@ export default function LibrarySync() {
   };
 
   return (
-    // Renders media into an interactable FlatList
+    /* Renders media into an interactable FlatList for sync selection.
+    User can toggle if they want all media to be synced or not, and then
+    can save their final selections for the app's reference
+     */
     <View style={styles.container}>
       <View style={styles.flatListContainer}>
         <MediaPreview media={media} syncAll={syncAll} setMedia={setMedia} />
@@ -104,7 +61,7 @@ export default function LibrarySync() {
       <View style={styles.optionsContainer}>
         <View style={styles.toggleRow}>
           <Text style={styles.settingsText}>Sync All Media</Text>
-          <Switch value={syncAll} onValueChange={handleToggleSyncAll} />
+          <Switch value={syncAll || false} onValueChange={handleToggleSyncAll} />
         </View>
         <View style={styles.saveButtonContainer}>
           <Pressable style={styles.saveButton} onPress={saveSelectedMedia}>
