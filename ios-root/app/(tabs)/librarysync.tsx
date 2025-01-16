@@ -1,67 +1,67 @@
-import { View, StyleSheet, FlatList, Animated, Pressable, Dimensions, ImageBackground, Button, Switch, Text } from "react-native";
+import { View, StyleSheet, Pressable, Switch, Text } from "react-native";
 import { useState, useEffect } from 'react';
 import * as MediaLibrary from "expo-media-library";
-import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import MediaPreview from "@/components/MediaPreview";
 
-// Device screen width to reference for photo rendering
-const screenWidth = Dimensions.get('window').width;
-
-type Photo = {
+type MediaItem = {
   id: string;
   uri: string;
+  type: string;
   isSelected: boolean;
 }
 
 // AsyncStorage keys
-const SELECTED_PHOTOS_KEY = "selectedPhotos";
+const SELECTED_MEDIA_KEY = "selectedMedia";
 const ALLSYNC_STATUS = "syncAllStatus"
 
 export default function LibrarySync() {
-  // Array of photos permitted to be accessed
-  const [photos, setPhotos] = useState<Photo[] | null>(null);
-  // Should all photos be selected for syncing?
+  // Array of media permitted to be accessed
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  // Should all media be selected for syncing?
   const [syncAll, setSyncAll] = useState(false);
 
-  // On page load, loads photos for preview
+  // On page load, loads media for preview
   useEffect(() => {
-    fetchPhotos();
+    fetchMedia();
   }, []);
 
-  // Loads photos from device media library
-  const fetchPhotos = async () => {
-    const storedSelectedPhotos = await getStoredSelectedPhotos();
+  // Loads media from device media library
+  const fetchMedia = async () => {
+    const storedSelectedMedia = await getStoredSelectedMedia();
     const syncAllStatus = await getSyncAllStatus();
     syncAllStatus === "true" ? setSyncAll(true) : null;
 
     const { assets: fetchedAssets } = await MediaLibrary.getAssetsAsync({
-      mediaType: MediaLibrary.MediaType.photo,
+      mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
     });
 
-    // Maps necessary metadata from each photo to an array for rendering on screen
+    // Maps necessary metadata from each media item to an array for rendering on screen
     if (syncAll) {
-      const formattedPhotos = fetchedAssets.map((photo) => ({
-        id: photo.id,
-        uri: photo.uri,
+      const formattedMedia = fetchedAssets.map((mediaItem) => ({
+        id: mediaItem.id,
+        uri: mediaItem.uri,
+        type: mediaItem.mediaType,
         isSelected: true,
       }));
-      setPhotos(formattedPhotos);
+      setMedia(formattedMedia);
     } else {
-      const formattedPhotos = fetchedAssets.map((photo) => ({
-        id: photo.id,
-        uri: photo.uri,
-        isSelected: storedSelectedPhotos?.includes(photo.id) || false,
+      const formattedMedia = fetchedAssets.map((mediaItem) => ({
+        id: mediaItem.id,
+        uri: mediaItem.uri,
+        type: mediaItem.mediaType,
+        isSelected: storedSelectedMedia?.includes(mediaItem.id) || false,
       }));
-      setPhotos(formattedPhotos);
+      setMedia(formattedMedia);
     }
   };
-  // fetchPhotos helpers: Get stored selected photos and syncAllStatus from AsyncStorage
-  const getStoredSelectedPhotos = async (): Promise<string[] | null> => {
+  // fetchMedia helpers: Get stored selected media and syncAllStatus from AsyncStorage
+  const getStoredSelectedMedia = async (): Promise<string[] | null> => {
     try {
-      const jsonValue = await AsyncStorage.getItem(SELECTED_PHOTOS_KEY);
+      const jsonValue = await AsyncStorage.getItem(SELECTED_MEDIA_KEY);
       return jsonValue ? JSON.parse(jsonValue) : null;
     } catch (error) {
-      console.error("Error retrieving stored photos:", error);
+      console.error("Error retrieving stored media:", error);
       return null;
     }
   };
@@ -75,68 +75,39 @@ export default function LibrarySync() {
     }
   }
 
-  // When the user toggles if they want all photos synced
+  // When the user toggles if they want all media synced
   const handleToggleSyncAll = () => {
     setSyncAll((prev) => !prev);
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((photo) => ({ ...photo, isSelected: !syncAll }))
-    );
-  };
-
-  // In FlatList: Toggles if the photo is selected for syncing
-  const togglePhotoSelection = (id: string) => {
-    setPhotos((prevPhotos) =>
-      prevPhotos.map((photo) =>
-        photo.id === id ? { ...photo, isSelected: !photo.isSelected } : photo
-      )
+    setMedia((prevMedia) =>
+      prevMedia.map((mediaItem) => ({ ...mediaItem, isSelected: !syncAll }))
     );
   };
 
   // Save final photo selection to AsyncStorage
-  const saveSelectedPhotos = async () => {
+  const saveSelectedMedia = async () => {
     try {
-      const selectedPhotoIds = photos?.filter((photo) => photo.isSelected).map((photo) => photo.id) || [];
-      await AsyncStorage.setItem(SELECTED_PHOTOS_KEY, JSON.stringify(selectedPhotoIds));
+      const selectedMediaIds = media?.filter((mediaItem) => mediaItem.isSelected).map((mediaItem) => mediaItem.id) || [];
+      await AsyncStorage.setItem(SELECTED_MEDIA_KEY, JSON.stringify(selectedMediaIds));
       await AsyncStorage.setItem(ALLSYNC_STATUS, String(syncAll));
-      alert("Selected photos saved successfully!");
+      alert("Selected media saved successfully!");
     } catch (error) {
-      console.error("Error saving selected photos:", error);
+      console.error("Error saving selected media:", error);
     }
   };
 
   return (
-    // Renders photos into an interactable FlatList
+    // Renders media into an interactable FlatList
     <View style={styles.container}>
       <View style={styles.flatListContainer}>
-        {!syncAll ?
-          (<FlatList
-            style={{ backgroundColor: "#000000" }}
-            data={photos}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
-            renderItem={({ item }) => (
-              <View style={styles.photoContainer}>
-                <ImageBackground source={{ uri: item.uri }} style={styles.photo}>
-                  {item.isSelected && <View style={styles.selectedPhotoDim} />}
-                  <Pressable style={styles.iconContainer} onPress={() => togglePhotoSelection(item.id)}>
-                    <FontAwesome name={item.isSelected ? 'check-circle' : 'circle-thin'}
-                      size={35} color={item.isSelected ? 'rgb(0, 255, 21)' : 'white'} />
-                  </Pressable>
-                </ImageBackground>
-              </View>
-            )}
-          />) : <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginHorizontal: '20%' }}>
-            <Text style={{ color: 'white', fontSize: 20, textAlign: 'center', paddingBottom: 10 }}>All Photos Will Be Synced</Text>
-            <FontAwesome name={'check-circle'} size={35} color={'rgb(0, 255, 21)'}/>
-          </View>}
+        <MediaPreview media={media} syncAll={syncAll} setMedia={setMedia} />
       </View>
       <View style={styles.optionsContainer}>
         <View style={styles.toggleRow}>
-          <Text style={styles.settingsText}>Sync All Photos</Text>
+          <Text style={styles.settingsText}>Sync All Media</Text>
           <Switch value={syncAll} onValueChange={handleToggleSyncAll} />
         </View>
         <View style={styles.saveButtonContainer}>
-          <Pressable style={styles.saveButton} onPress={saveSelectedPhotos}>
+          <Pressable style={styles.saveButton} onPress={saveSelectedMedia}>
             <Text style={styles.saveButtonText}>Save Changes</Text>
           </Pressable>
         </View>
@@ -155,28 +126,6 @@ const styles = StyleSheet.create({
   },
   photoGallery: {
     flex: 1,
-  },
-  photoContainer: {
-    width: screenWidth / 3,
-    height: screenWidth / 3,
-    borderWidth: 0.5,
-    borderColor: 'black',
-    flex: 1,
-    position: 'relative',
-  },
-  selectedPhotoDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  iconContainer: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    zIndex: 1,
   },
   optionsContainer: {
     height: '20%',
