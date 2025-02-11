@@ -1,9 +1,10 @@
-import { View, StyleSheet, Pressable, Switch, Text } from "react-native";
+import { View, StyleSheet, Pressable, Switch, Text, AppState } from "react-native";
 import { useState, useEffect } from 'react';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import MediaPreview from "@/components/MediaPreview";
 import StorageKeys from "@/utility/constants/AsyncStorageKeys";
-import { PreviewMediaFetch, getAllSyncStatus, storeSelectedMediaIds } from "@/utility/MediaFetchUtils";
+import { PreviewMediaFetch, getAllSyncStatus, setStoredSelectedMediaIds, updateMediaIndex } from "@/utility/MediaFetchUtils";
 
 type MediaItem = {
   id: string;
@@ -13,16 +14,37 @@ type MediaItem = {
 }
 
 export default function LibrarySync() {
+  // "Array of Objects"
   const [media, setMedia] = useState<MediaItem[]>([]);
+  // "Boolean"
   const [syncAll, setSyncAll] = useState<boolean | null>(false);
 
-  // On page load, loads media for preview
+  /* On page load, and then on app refocus:
+  The app's "stored selected media data" and the device's media library data
+  are recalibrated for any changes in the device's MediaLibrary environment,
+  then media is loaded for preview
+  */
   useEffect(() => {
+
+    // Initial sync data update and then rendering
+    updateMediaIndex();
     handleFetchMediaUtils();
+
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        await updateMediaIndex();
+        handleFetchMediaUtils();
+      }
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const handleFetchMediaUtils = async () => {
-    const fetchedSyncStatus = await getAllSyncStatus(StorageKeys.ALLSYNC_STATUS_KEY);
+    const fetchedSyncStatus = await getAllSyncStatus();
     setSyncAll(fetchedSyncStatus);
     const fetchedPreviewMedia = await PreviewMediaFetch();
     setMedia(fetchedPreviewMedia);
@@ -40,7 +62,7 @@ export default function LibrarySync() {
   const saveSelectedMedia = async () => {
     try {
       const selectedMediaIds = media?.filter((mediaItem) => mediaItem.isSelected).map((mediaItem) => mediaItem.id) || [];
-      storeSelectedMediaIds(selectedMediaIds);
+      setStoredSelectedMediaIds(selectedMediaIds);
       await AsyncStorage.setItem(StorageKeys.ALLSYNC_STATUS_KEY, String(syncAll));
       alert("Selected media saved successfully!");
     } catch (error) {

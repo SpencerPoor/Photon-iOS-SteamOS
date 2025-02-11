@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import * as MediaLibrary from 'expo-media-library';
 
 import PermissionsSetup from "@/components/PermissionsSetup";
+import { updateMediaIndex } from "@/utility/MediaFetchUtils";
 
 export default function Index() {
   // Boolean to determine if setup is visible
@@ -11,7 +12,6 @@ export default function Index() {
   // App startup functions
   useEffect(() => {
     checkPermissionAccess();
-    checkAllSync();
   }, [])
 
   // Checks if app has media permissions. If not, triggers setup
@@ -22,11 +22,6 @@ export default function Index() {
     } else {
       setShowSetup(false);
     }
-  }
-
-  // If user wants entire library to be synced, then app load refreshes StoredSelectedMediaIds index
-  const checkAllSync = async () => {
-
   }
 
   return (
